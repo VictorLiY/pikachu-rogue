@@ -5,7 +5,7 @@
 const CONFIG = {
     CANVAS_WIDTH: 800,
     CANVAS_HEIGHT: 600,
-    TILE_SIZE: 32,
+    TILE_SIZE: 48,  // 放大 1.5 倍 (32 * 1.5 = 48)
     FPS: 60
 };
 
@@ -16,7 +16,7 @@ const HEROES = {
         name: '皮卡丘',
         emoji: '⚡',
         color: '#FFD700',
-        hp: 100,
+        hp: 150,      // 血量提升
         energy: 100,
         speed: 5,
         skills: ['thunder_shock', 'thunderbolt', 'quick_attack', 'iron_tail'],
@@ -27,10 +27,10 @@ const HEROES = {
         name: '小火龙',
         emoji: '🐉',
         color: '#FF6B35',
-        hp: 120,      // 更高血量
-        energy: 90,   // 稍低能量
-        speed: 4.5,   // 稍慢速度
-        skills: ['ember', 'flamethrower', 'dragon_claw', 'fire_spin'],
+        hp: 150,      // 血量提升
+        energy: 90,
+        speed: 4.5,
+        skills: ['ember', 'flamethrower', 'spark_of_genius', 'fire_spin'],  // 龙之爪换成灵光一闪
         description: '火系宝可梦，高血量，技能伤害高'
     }
 };
@@ -152,18 +152,19 @@ const SKILLS = {
         burn: 2000, // 灼烧效果
         hero: 'charmander'
     },
-    dragon_claw: {
-        id: 'dragon_claw',
-        name: '龙之爪',
+    spark_of_genius: {
+        id: 'spark_of_genius',
+        name: '灵光一闪',
         key: 'E',
-        energyCost: 18,
-        cooldown: 3500,
-        damage: 25,
-        dashDistance: 4,
-        range: 80,
-        color: '#FF8C00',
-        invincible: 400,
-        hero: 'charmander'
+        energyCost: 20,
+        cooldown: 4000,
+        damage: 35,
+        range: CONFIG.TILE_SIZE * 4,  // 大范围
+        angle: Math.PI * 2,  // 全方向
+        color: '#9B59B6',  // 紫色灵光
+        stun: 500,  // 短暂眩晕
+        hero: 'charmander',
+        description: '智慧爆发，对周围所有敌人造成伤害并眩晕'
     },
     fire_spin: {
         id: 'fire_spin',
@@ -1487,8 +1488,8 @@ function useSkill(skill, player) {
         case 'flamethrower':
             useFlamethrower(skill, player);
             break;
-        case 'dragon_claw':
-            useDragonClaw(skill, player);
+        case 'spark_of_genius':
+            useSparkOfGenius(skill, player);
             break;
         case 'fire_spin':
             useFireSpin(skill, player);
@@ -1673,16 +1674,10 @@ function useFlamethrower(skill, player) {
     });
 }
 
-function useDragonClaw(skill, player) {
+function useSparkOfGenius(skill, player) {
     playSound('skill_e');
     
-    const dx = player.direction.x || 0;
-    const dy = player.direction.y || 1;
-    player.x += dx * skill.dashDistance * CONFIG.TILE_SIZE;
-    player.y += dy * skill.dashDistance * CONFIG.TILE_SIZE;
-    player.invincible = skill.invincible;
-    
-    // 对周围敌人造成伤害
+    // 灵光一闪：全范围伤害 + 眩晕
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
         const edx = enemy.x - player.x;
@@ -1694,6 +1689,11 @@ function useDragonClaw(skill, player) {
             addDamageNumber(enemy.x, enemy.y, skill.damage.toString(), skill.color);
             playSound('hit');
             
+            // 眩晕效果
+            if (skill.stun) {
+                enemy.stunned = skill.stun;
+            }
+            
             if (enemy.hp <= 0) {
                 gameState.score += enemy.score;
                 gameState.kills++;
@@ -1704,12 +1704,14 @@ function useDragonClaw(skill, player) {
         }
     }
     
+    // 灵光特效：紫色光环扩散
     effects.push({
-        type: 'dragon_claw',
+        type: 'spark_of_genius',
         x: player.x,
         y: player.y,
-        life: 0.3,
-        color: skill.color
+        life: 0.5,
+        color: skill.color,
+        maxRadius: skill.range
     });
 }
 
@@ -1783,46 +1785,7 @@ function applyFlamethrowerDamage(angle) {
     });
 }
 
-function useDragonClaw(skill) {
-    // 播放音效
-    playSound('skill_e');
-    
-    const dx = player.direction.x || 0;
-    const dy = player.direction.y || 1;
-    player.x += dx * skill.dashDistance * CONFIG.TILE_SIZE;
-    player.y += dy * skill.dashDistance * CONFIG.TILE_SIZE;
-    player.invincible = skill.invincible;
-    
-    // 对周围敌人造成伤害
-    for (let i = enemies.length - 1; i >= 0; i--) {
-        const enemy = enemies[i];
-        const edx = enemy.x - player.x;
-        const edy = enemy.y - player.y;
-        const dist = Math.sqrt(edx * edx + edy * edy);
-        
-        if (dist < skill.range) {
-            enemy.hp -= skill.damage;
-            addDamageNumber(enemy.x, enemy.y, skill.damage.toString(), skill.color);
-            playSound('hit');
-            
-            if (enemy.hp <= 0) {
-                gameState.score += enemy.score;
-                gameState.kills++;
-                playSound('enemy_death');
-                enemies.splice(i, 1);
-                if (Math.random() < 0.3) spawnItem(enemy.x, enemy.y);
-            }
-        }
-    }
-    
-    effects.push({
-        type: 'dragon_claw',
-        x: player.x,
-        y: player.y,
-        life: 0.3,
-        color: skill.color
-    });
-}
+// 已替换为 useSparkOfGenius (见上方)
 
 function useFireSpin(skill) {
     // 播放音效
@@ -2101,20 +2064,19 @@ function renderEffects(ctx) {
             ctx.closePath();
             ctx.fill();
             ctx.restore();
-        } else if (effect.type === 'dragon_claw') {
-            ctx.fillStyle = `rgba(255, 140, 0, ${effect.life * 3})`;
+        } else if (effect.type === 'spark_of_genius') {
+            // 灵光一闪：紫色光环扩散效果
+            const radius = (1 - effect.life / 0.5) * effect.maxRadius;
+            ctx.fillStyle = `rgba(155, 89, 182, ${effect.life * 2})`;
             ctx.beginPath();
-            ctx.arc(effect.x + CONFIG.TILE_SIZE / 2, effect.y + CONFIG.TILE_SIZE / 2, 50, 0, Math.PI * 2);
+            ctx.arc(effect.x + CONFIG.TILE_SIZE / 2, effect.y + CONFIG.TILE_SIZE / 2, radius, 0, Math.PI * 2);
             ctx.fill();
-            // 爪痕效果
-            ctx.strokeStyle = `rgba(255, 255, 255, ${effect.life * 2})`;
-            ctx.lineWidth = 3;
-            for (let i = 0; i < 3; i++) {
-                ctx.beginPath();
-                ctx.moveTo(effect.x - 20 + i * 20, effect.y - 20);
-                ctx.lineTo(effect.x + 20 + i * 20, effect.y + 20);
-                ctx.stroke();
-            }
+            // 灵光波纹
+            ctx.strokeStyle = `rgba(200, 150, 255, ${effect.life * 3})`;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(effect.x + CONFIG.TILE_SIZE / 2, effect.y + CONFIG.TILE_SIZE / 2, radius * 0.7, 0, Math.PI * 2);
+            ctx.stroke();
         } else if (effect.type === 'fire_spin') {
             ctx.fillStyle = `rgba(220, 20, 60, ${effect.life * 2})`;
             ctx.beginPath();
