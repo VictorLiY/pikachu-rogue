@@ -3,8 +3,8 @@
 
 // ==================== 游戏配置 ====================
 const CONFIG = {
-    CANVAS_WIDTH: 800,
-    CANVAS_HEIGHT: 600,
+    CANVAS_WIDTH: 1200,  // 放大 1.5 倍 (800 * 1.5)
+    CANVAS_HEIGHT: 900,  // 放大 1.5 倍 (600 * 1.5)
     TILE_SIZE: 48,  // 放大 1.5 倍 (32 * 1.5 = 48)
     FPS: 60
 };

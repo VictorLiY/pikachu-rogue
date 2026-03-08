@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Load</title>
+</head>
+<body>
+    <h1>Testing game.js load...</h1>
+    <div id="result"></div>
+    <script>
+        try {
+            // 先加载 game.js
+            const script = document.createElement('script');
+            script.src = 'game.js';
+            script.onload = function() {
+                document.getElementById('result').innerHTML = '✅ game.js loaded successfully!';
+                console.log('Game loaded, CONFIG:', typeof CONFIG);
+                console.log('HEROES:', typeof HEROES);
+                console.log('SKILLS:', typeof SKILLS);
+            };
+            script.onerror = function(e) {
+                document.getElementById('result').innerHTML = '❌ Failed to load game.js: ' + e;
+            };
+            document.body.appendChild(script);
+        } catch(e) {
+            document.getElementById('result').innerHTML = '❌ Error: ' + e.message;
+        }
+    </script>
+</body>
+</html>
