@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 皮卡丘移动测试</title>
+    <style>
+        body {
+            background: #1a1a2e;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        #status {
+            font-size: 1.5em;
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+        }
+        .controls {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(78, 205, 196, 0.2);
+            border-radius: 10px;
+        }
+        .key {
+            display: inline-block;
+            padding: 8px 15px;
+            background: #333;
+            border: 2px solid #555;
+            border-radius: 5px;
+            margin: 0 5px;
+            font-weight: bold;
+        }
+        #test-result {
+            margin-top: 30px;
+            padding: 20px;
+            font-size: 1.2em;
+        }
+        .success { color: #4ECDC4; }
+        .error { color: #FF6B6B; }
+    </style>
+</head>
+<body>
+    <h1>🧪 皮卡丘移动测试</h1>
+    
+    <div id="status">等待测试...</div>
+    
+    <div class="controls">
+        <h3>控制方式</h3>
+        <p>键盘：<span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> 或 <span class="key">↑</span><span class="key">←</span><span class="key">↓</span><span class="key">→</span></p>
+        <p>手柄：左摇杆 或 方向键</p>
+    </div>
+    
+    <div id="test-result"></div>
+    
+    <button onclick="openGame()" style="padding: 15px 30px; font-size: 1.2em; background: #FFD700; border: none; border-radius: 10px; cursor: pointer; margin-top: 20px;">
+        🎮 打开完整游戏
+    </button>
+    
+    <script>
+        const statusEl = document.getElementById('status');
+        const resultEl = document.getElementById('test-result');
+        
+        // 测试键盘输入
+        let keysPressed = [];
+        document.addEventListener('keydown', (e) => {
+            if (!keysPressed.includes(e.code)) {
+                keysPressed.push(e.code);
+            }
+            updateStatus();
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keysPressed = keysPressed.filter(k => k !== e.code);
+            updateStatus();
+        });
+        
+        // 测试手柄
+        let gamepadConnected = false;
+        window.addEventListener('gamepadconnected', (e) => {
+            gamepadConnected = true;
+            statusEl.innerHTML = `✅ 手柄已连接：${e.gamepad.id}`;
+            statusEl.className = 'success';
+            testGamepad();
+        });
+        
+        window.addEventListener('gamepaddisconnected', (e) => {
+            gamepadConnected = false;
+            updateStatus();
+        });
+        
+        function updateStatus() {
+            if (keysPressed.length > 0) {
+                statusEl.innerHTML = `⌨️ 检测到按键：${keysPressed.join(', ')}`;
+                statusEl.className = 'success';
+                
+                // 检查是否是移动键
+                const moveKeys = ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+                const hasMoveKey = keysPressed.some(k => moveKeys.includes(k));
+                
+                if (hasMoveKey) {
+                    resultEl.innerHTML = `
+                        <p class="success">✅ 键盘移动测试通过！</p>
+                        <p>在游戏中，皮卡丘应该可以移动了。</p>
+                        <p>如果还是不能移动，请刷新游戏页面（F5）。</p>
+                    `;
+                }
+            } else if (gamepadConnected) {
+                statusEl.textContent = '🎮 手柄已连接，等待输入...';
+            } else {
+                statusEl.textContent = '⌨️ 按任意方向键测试...';
+                statusEl.className = '';
+            }
+        }
+        
+        function testGamepad() {
+            const checkInterval = setInterval(() => {
+                const gamepads = navigator.getGamepads();
+                const gp = gamepads[0];
+                
+                if (gp) {
+                    const axes = gp.axes;
+                    const buttons = gp.buttons;
+                    
+                    if (Math.abs(axes[0]) > 0.2 || Math.abs(axes[1]) > 0.2 || 
+                        buttons[12]?.pressed || buttons[13]?.pressed || 
+                        buttons[14]?.pressed || buttons[15]?.pressed) {
+                        
+                        resultEl.innerHTML = `
+                            <p class="success">✅ 手柄测试通过！</p>
+                            <p>手柄输入已检测到。</p>
+                        `;
+                        clearInterval(checkInterval);
+                    }
+                }
+            }, 100);
+        }
+        
+        function openGame() {
+            window.open('index.html', '_blank');
+        }
+        
+        // 初始化
+        updateStatus();
+        
+        // 自动打开游戏（3 秒后）
+        setTimeout(() => {
+            resultEl.innerHTML += `
+                <p style="color: #888; margin-top: 20px;">
+                    💡 提示：如果测试通过但游戏中还是不能移动，请：<br>
+                    1. 刷新游戏页面（F5）<br>
+                    2. 确保点击了游戏画布（获取焦点）<br>
+                    3. 检查浏览器控制台是否有错误（F12）
+                </p>
+            `;
+        }, 1000);
+    </script>
+</body>
+</html>

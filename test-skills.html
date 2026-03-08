@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>技能初始化测试</title>
+</head>
+<body>
+    <h1>技能初始化测试</h1>
+    <div id="output"></div>
+    <script src="game.js"></script>
+    <script>
+        const output = document.getElementById('output');
+        
+        try {
+            // 测试 HEROES
+            output.innerHTML += '<h2>✅ HEROES 加载成功</h2>';
+            output.innerHTML += `<p>皮卡丘技能：${HEROES.pikachu.skills.join(', ')}</p>`;
+            output.innerHTML += `<p>小火龙技能：${HEROES.charmander.skills.join(', ')}</p>`;
+            
+            // 测试 SKILLS
+            output.innerHTML += '<h2>✅ SKILLS 加载成功</h2>';
+            output.innerHTML += `<p>技能总数：${Object.keys(SKILLS).length}</p>`;
+            
+            // 测试技能映射
+            output.innerHTML += '<h2>技能映射测试</h2>';
+            
+            HEROES.pikachu.skills.forEach(skillId => {
+                const skill = SKILLS[skillId];
+                if (skill) {
+                    output.innerHTML += `<p style="color:green">✅ 皮卡丘.${skillId} → ${skill.name}</p>`;
+                } else {
+                    output.innerHTML += `<p style="color:red">❌ 皮卡丘.${skillId} → 未找到!</p>`;
+                }
+            });
+            
+            HEROES.charmander.skills.forEach(skillId => {
+                const skill = SKILLS[skillId];
+                if (skill) {
+                    output.innerHTML += `<p style="color:green">✅ 小火龙.${skillId} → ${skill.name}</p>`;
+                } else {
+                    output.innerHTML += `<p style="color:red">❌ 小火龙.${skillId} → 未找到!</p>`;
+                }
+            });
+            
+        } catch (e) {
+            output.innerHTML += `<h2 style="color:red">❌ 错误：${e.message}</h2>`;
+            output.innerHTML += `<pre>${e.stack}</pre>`;
+        }
+    </script>
+</body>
+</html>

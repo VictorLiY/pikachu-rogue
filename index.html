@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ 皮卡丘大冒险 - Roguelike</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- 主菜单 -->
+        <div id="main-menu" class="screen active">
+            <h1>⚡ 皮卡丘大冒险</h1>
+            <p class="subtitle">Roguelike 生存挑战 🐉</p>
+            <div class="button-group">
+                <button id="start-single-btn" class="menu-btn primary">🎮 单人模式</button>
+                <button id="start-coop-btn" class="menu-btn">👥 双人合作</button>
+            </div>
+            <div class="instructions">
+                <h3>操作说明</h3>
+                <p>🎮 手柄 / 键盘</p>
+                <p>移动：WASD / 方向键 / 左摇杆</p>
+                <p>技能：Q/W/E/R / A/B/X/Y 键</p>
+                <p>暂停：ESC / Start 键</p>
+                <p style="margin-top: 15px; color: #4ECDC4;">👥 双人模式：两个手柄，分别控制</p>
+            </div>
+        </div>
+
+        <!-- 游戏模式选择 -->
+        <div id="mode-select" class="screen">
+            <h2 id="mode-title">选择英雄</h2>
+            <p id="mode-subtitle">玩家 1 选择</p>
+            <div id="hero-options" class="hero-grid"></div>
+        </div>
+
+        <!-- 技能选择界面 -->
+        <div id="skill-select" class="screen">
+            <h2>选择初始技能</h2>
+            <p>3 选 2</p>
+            <div id="skill-options" class="skill-grid"></div>
+        </div>
+
+        <!-- 游戏主界面 -->
+        <div id="game-screen" class="screen">
+            <div id="ui-top">
+                <div id="hero-display">英雄：<span id="hero-name">⚡ 皮卡丘</span></div>
+                <div id="level-info">关卡：<span id="level-display">1</span></div>
+                <div id="score-info">分数：<span id="score-display">0</span></div>
+                <div id="time-info">时间：<span id="time-display">0</span>s</div>
+                <button id="mute-btn" class="mute-btn">🔊</button>
+            </div>
+            
+            <canvas id="game-canvas"></canvas>
+            
+            <div id="ui-bottom">
+                <!-- 双人模式显示两个玩家状态 -->
+                <div id="player2-stats" style="display: none;">
+                    <div class="player-label">👤2 <span id="player2-name">小火龙</span></div>
+                    <div id="stats-bar-p2">
+                        <div id="health-bar-p2">
+                            <div id="health-fill-p2"></div>
+                            <span id="health-text-p2">120/120</span>
+                        </div>
+                        <div id="energy-bar-p2">
+                            <div id="energy-fill-p2"></div>
+                            <span id="energy-text-p2">90/90</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 玩家 1 状态 -->
+                <div id="player1-stats">
+                    <div class="player-label">👤1 <span id="player1-name">皮卡丘</span></div>
+                    <div id="stats-bar">
+                        <div id="health-bar">
+                            <div id="health-fill"></div>
+                            <span id="health-text">100/100</span>
+                        </div>
+                        <div id="energy-bar">
+                            <div id="energy-fill"></div>
+                            <span id="energy-text">100/100</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 技能栏 -->
+                <div id="skills-bar">
+                    <div class="skill-slot" id="skill-q">
+                        <span class="skill-key">Q</span>
+                        <span class="skill-name">-</span>
+                        <div class="cooldown-bar"></div>
+                    </div>
+                    <div class="skill-slot" id="skill-w">
+                        <span class="skill-key">W</span>
+                        <span class="skill-name">-</span>
+                        <div class="cooldown-bar"></div>
+                    </div>
+                    <div class="skill-slot" id="skill-e">
+                        <span class="skill-key">E</span>
+                        <span class="skill-name">-</span>
+                        <div class="cooldown-bar"></div>
+                    </div>
+                    <div class="skill-slot" id="skill-r">
+                        <span class="skill-key">R</span>
+                        <span class="skill-name">-</span>
+                        <div class="cooldown-bar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 关卡结算界面 -->
+        <div id="level-complete" class="screen">
+            <h2>🎉 关卡完成!</h2>
+            <p id="level-score"></p>
+            <h3>选择强化</h3>
+            <div id="upgrade-options" class="upgrade-grid"></div>
+        </div>
+
+        <!-- 游戏结束界面 -->
+        <div id="game-over" class="screen">
+            <h2>💀 游戏结束</h2>
+            <p id="final-score"></p>
+            <p id="final-stats"></p>
+            <div class="button-group">
+                <button id="restart-btn" class="menu-btn primary">📌 从当前关卡重新开始</button>
+                <button id="restart-1-btn" class="menu-btn">🔄 从第 1 关重新开始</button>
+            </div>
+            <button id="menu-btn" class="menu-btn">返回主菜单</button>
+        </div>
+
+        <!-- 暂停界面 -->
+        <div id="pause-screen" class="screen">
+            <h2>⏸️ 游戏暂停</h2>
+            <button id="resume-btn" class="menu-btn">继续</button>
+            <button id="quit-btn" class="menu-btn">退出</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
