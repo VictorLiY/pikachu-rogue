@@ -1785,37 +1785,7 @@ function applyFlamethrowerDamage(angle) {
     });
 }
 
-// 已替换为 useSparkOfGenius (见上方)
-
-function useFireSpin(skill) {
-    // 播放音效
-    playSound('skill_r');
-    
-    // 创建火焰旋涡区域
-    const buffedRange = skill.range * skillBuffs.q_range;
-    const buffedDuration = (skill.duration / 1000) * skillBuffs.q_duration;
-    
-    skillZones.push({
-        type: 'fire_spin',
-        x: player.x,
-        y: player.y,
-        radius: buffedRange,
-        damage: skill.damage,
-        duration: buffedDuration,
-        life: buffedDuration,
-        color: skill.color,
-        damageTimer: 0,
-        knockback: skill.knockback
-    });
-    
-    effects.push({
-        type: 'fire_spin',
-        x: player.x,
-        y: player.y,
-        life: 0.5,
-        color: skill.color
-    });
-}
+// useFireSpin 已在上面定义 (1718 行)
 
 // ==================== 渲染 ====================
 function render() {
