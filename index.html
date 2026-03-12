@@ -53,56 +53,35 @@
             <canvas id="game-canvas"></canvas>
             
             <div id="ui-bottom">
-                <!-- 双人模式显示两个玩家状态 -->
-                <div id="player2-stats" style="display: none;">
-                    <div class="player-label">👤2 <span id="player2-name">小火龙</span></div>
-                    <div id="stats-bar-p2">
-                        <div id="health-bar-p2">
-                            <div id="health-fill-p2"></div>
-                            <span id="health-text-p2">120/120</span>
-                        </div>
-                        <div id="energy-bar-p2">
-                            <div id="energy-fill-p2"></div>
-                            <span id="energy-text-p2">90/90</span>
-                        </div>
+                <div id="stats-bar">
+                    <div id="health-bar">
+                        <div id="health-fill"></div>
+                        <span id="health-text">100/100</span>
+                    </div>
+                    <div id="energy-bar">
+                        <div id="energy-fill"></div>
+                        <span id="energy-text">50/50</span>
                     </div>
                 </div>
-                
-                <!-- 玩家 1 状态 -->
-                <div id="player1-stats">
-                    <div class="player-label">👤1 <span id="player1-name">皮卡丘</span></div>
-                    <div id="stats-bar">
-                        <div id="health-bar">
-                            <div id="health-fill"></div>
-                            <span id="health-text">100/100</span>
-                        </div>
-                        <div id="energy-bar">
-                            <div id="energy-fill"></div>
-                            <span id="energy-text">100/100</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- 技能栏 -->
                 <div id="skills-bar">
                     <div class="skill-slot" id="skill-q">
                         <span class="skill-key">Q</span>
-                        <span class="skill-name">-</span>
+                        <span class="skill-name">电击</span>
                         <div class="cooldown-bar"></div>
                     </div>
                     <div class="skill-slot" id="skill-w">
                         <span class="skill-key">W</span>
-                        <span class="skill-name">-</span>
+                        <span class="skill-name">十万伏特</span>
                         <div class="cooldown-bar"></div>
                     </div>
                     <div class="skill-slot" id="skill-e">
                         <span class="skill-key">E</span>
-                        <span class="skill-name">-</span>
+                        <span class="skill-name">电光一闪</span>
                         <div class="cooldown-bar"></div>
                     </div>
                     <div class="skill-slot" id="skill-r">
                         <span class="skill-key">R</span>
-                        <span class="skill-name">-</span>
+                        <span class="skill-name">铁尾</span>
                         <div class="cooldown-bar"></div>
                     </div>
                 </div>

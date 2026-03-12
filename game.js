@@ -3,9 +3,9 @@
 
 // ==================== 游戏配置 ====================
 const CONFIG = {
-    CANVAS_WIDTH: 1200,  // 放大 1.5 倍 (800 * 1.5)
-    CANVAS_HEIGHT: 900,  // 放大 1.5 倍 (600 * 1.5)
-    TILE_SIZE: 48,  // 放大 1.5 倍 (32 * 1.5 = 48)
+    CANVAS_WIDTH: 800,
+    CANVAS_HEIGHT: 600,
+    TILE_SIZE: 32,
     FPS: 60
 };
 
@@ -16,7 +16,7 @@ const HEROES = {
         name: '皮卡丘',
         emoji: '⚡',
         color: '#FFD700',
-        hp: 150,      // 血量提升
+        hp: 100,
         energy: 100,
         speed: 5,
         skills: ['thunder_shock', 'thunderbolt', 'quick_attack', 'iron_tail'],
@@ -27,10 +27,10 @@ const HEROES = {
         name: '小火龙',
         emoji: '🐉',
         color: '#FF6B35',
-        hp: 150,      // 血量提升
-        energy: 90,
-        speed: 4.5,
-        skills: ['ember', 'flamethrower', 'spark_of_genius', 'fire_spin'],  // 龙之爪换成灵光一闪
+        hp: 120,      // 更高血量
+        energy: 90,   // 稍低能量
+        speed: 4.5,   // 稍慢速度
+        skills: ['ember', 'flamethrower', 'dragon_claw', 'fire_spin'],
         description: '火系宝可梦，高血量，技能伤害高'
     }
 };
@@ -152,19 +152,18 @@ const SKILLS = {
         burn: 2000, // 灼烧效果
         hero: 'charmander'
     },
-    spark_of_genius: {
-        id: 'spark_of_genius',
-        name: '灵光一闪',
+    dragon_claw: {
+        id: 'dragon_claw',
+        name: '龙之爪',
         key: 'E',
-        energyCost: 20,
-        cooldown: 4000,
-        damage: 35,
-        range: CONFIG.TILE_SIZE * 4,  // 大范围
-        angle: Math.PI * 2,  // 全方向
-        color: '#9B59B6',  // 紫色灵光
-        stun: 500,  // 短暂眩晕
-        hero: 'charmander',
-        description: '智慧爆发，对周围所有敌人造成伤害并眩晕'
+        energyCost: 18,
+        cooldown: 3500,
+        damage: 25,
+        dashDistance: 4,
+        range: 80,
+        color: '#FF8C00',
+        invincible: 400,
+        hero: 'charmander'
     },
     fire_spin: {
         id: 'fire_spin',
@@ -265,6 +264,7 @@ let effects = [];
 let items = [];
 let damageNumbers = [];
 let skillZones = []; // 技能区域（如电击持续伤害区）
+let fireParticles = []; // 火焰粒子数组
 
 // 技能强化状态
 let skillBuffs = {
@@ -286,7 +286,7 @@ function initAudio() {
 }
 
 // 播放音效（使用 Web Audio API 合成）
-function playSound(type) {
+function playSound(type, playerRef) {
     if (!audioCtx || !soundEnabled) return;
     
     const osc = audioCtx.createOscillator();
@@ -296,49 +296,119 @@ function playSound(type) {
     
     const now = audioCtx.currentTime;
     
+    // 获取当前英雄（使用传入的玩家引用或全局 player）
+    const playerObj = playerRef || player;
+    const currentHero = playerObj ? playerObj.hero : 'pikachu';
+    const isCharmander = currentHero === 'charmander';
+    
     switch(type) {
-        case 'skill_q': // 电击 - 电流声
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(800, now);
-            osc.frequency.exponentialRampToValueAtTime(200, now + 0.3);
-            gain.gain.setValueAtTime(0.3, now);
-            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-            osc.start(now);
-            osc.stop(now + 0.3);
+        case 'skill_q':
+            if (isCharmander) {
+                // 🔥 火花 - 火焰噼啪声
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(600, now);
+                osc.frequency.exponentialRampToValueAtTime(150, now + 0.25);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.start(now);
+                osc.stop(now + 0.25);
+                
+                // 添加火焰噪声
+                const fireNoise = createFireNoise(0.25);
+                fireNoise.connect(audioCtx.destination);
+            } else {
+                // ⚡ 电击 - 电流声
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(800, now);
+                osc.frequency.exponentialRampToValueAtTime(200, now + 0.3);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
             break;
             
-        case 'skill_w': // 十万伏特 - 强力电流
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(400, now);
-            osc.frequency.exponentialRampToValueAtTime(100, now + 0.5);
-            gain.gain.setValueAtTime(0.4, now);
-            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-            osc.start(now);
-            osc.stop(now + 0.5);
-            
-            // 添加噪声效果
-            const noise = createNoise(0.5);
-            noise.connect(audioCtx.destination);
+        case 'skill_w':
+            if (isCharmander) {
+                // 🔥 喷射火焰 - 强烈火焰喷射声
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(80, now + 0.6);
+                gain.gain.setValueAtTime(0.35, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                osc.start(now);
+                osc.stop(now + 0.6);
+                
+                // 添加强烈火焰噪声
+                const fireNoise = createFireNoise(0.6);
+                fireNoise.connect(audioCtx.destination);
+            } else {
+                // ⚡ 十万伏特 - 强力电流
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(100, now + 0.5);
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                osc.start(now);
+                osc.stop(now + 0.5);
+                
+                // 添加噪声效果
+                const noise = createNoise(0.5);
+                noise.connect(audioCtx.destination);
+            }
             break;
             
-        case 'skill_e': // 电光一闪 - 快速滑动
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(600, now);
-            osc.frequency.linearRampToValueAtTime(1200, now + 0.2);
-            gain.gain.setValueAtTime(0.3, now);
-            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-            osc.start(now);
-            osc.stop(now + 0.2);
+        case 'skill_e':
+            if (isCharmander) {
+                // 🔥 龙之爪 - 龙爪撕裂声 + 火焰
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(500, now);
+                osc.frequency.linearRampToValueAtTime(900, now + 0.15);
+                osc.frequency.exponentialRampToValueAtTime(300, now + 0.3);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+                
+                // 添加火焰噪声
+                const fireNoise = createFireNoise(0.3);
+                fireNoise.connect(audioCtx.destination);
+            } else {
+                // ⚡ 电光一闪 - 快速滑动
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, now);
+                osc.frequency.linearRampToValueAtTime(1200, now + 0.2);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            }
             break;
             
-        case 'skill_r': // 铁尾 - 重击
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(200, now);
-            osc.frequency.exponentialRampToValueAtTime(50, now + 0.3);
-            gain.gain.setValueAtTime(0.4, now);
-            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-            osc.start(now);
-            osc.stop(now + 0.3);
+        case 'skill_r':
+            if (isCharmander) {
+                // 🔥 火焰旋涡 - 旋涡轰鸣 + 火焰
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(250, now);
+                osc.frequency.exponentialRampToValueAtTime(60, now + 0.5);
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                osc.start(now);
+                osc.stop(now + 0.5);
+                
+                // 添加旋涡噪声
+                const fireNoise = createFireNoise(0.5);
+                fireNoise.connect(audioCtx.destination);
+            } else {
+                // ⚡ 铁尾 - 重击
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(200, now);
+                osc.frequency.exponentialRampToValueAtTime(50, now + 0.3);
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
             break;
             
         case 'hit': // 敌人被击中
@@ -431,6 +501,42 @@ function createNoise(duration) {
     gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
     noise.connect(gain);
+    gain.connect(audioCtx.destination);
+    noise.start();
+    
+    return noise;
+}
+
+// 🔥 创建火焰噪声（用于小火龙技能）
+function createFireNoise(duration) {
+    const bufferSize = audioCtx.sampleRate * duration;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    
+    // 生成类似火焰的低频噪声
+    for (let i = 0; i < bufferSize; i++) {
+        const t = i / audioCtx.sampleRate;
+        // 结合多个频率的噪声，模拟火焰噼啪声
+        data[i] = (Math.random() * 2 - 1) * 0.7 + 
+                  Math.sin(t * 100) * 0.2 + 
+                  Math.sin(t * 250) * 0.1;
+    }
+    
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    
+    // 火焰音效的滤波器
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(800, audioCtx.currentTime);
+    filter.Q.value = 0.5;
+    
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+    
+    noise.connect(filter);
+    filter.connect(gain);
     gain.connect(audioCtx.destination);
     noise.start();
     
@@ -737,6 +843,9 @@ function update(dt) {
     
     // 更新效果
     updateEffects(dt);
+    
+    // 更新火焰粒子
+    updateFireParticles(dt);
     
     // 更新物品（两个玩家都可以拾取）
     updateItems(dt);
@@ -1105,6 +1214,21 @@ function updateEffects(dt) {
             effects.splice(index, 1);
         }
     });
+}
+
+// 🐉 火焰粒子更新
+function updateFireParticles(dt) {
+    for (let i = fireParticles.length - 1; i >= 0; i--) {
+        const p = fireParticles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= dt;
+        p.size *= 0.97; // 逐渐缩小
+        
+        if (p.life <= 0 || p.size < 0.5) {
+            fireParticles.splice(i, 1);
+        }
+    }
 }
 
 function updateItems(dt) {
@@ -1488,8 +1612,8 @@ function useSkill(skill, player) {
         case 'flamethrower':
             useFlamethrower(skill, player);
             break;
-        case 'spark_of_genius':
-            useSparkOfGenius(skill, player);
+        case 'dragon_claw':
+            useDragonClaw(skill, player);
             break;
         case 'fire_spin':
             useFireSpin(skill, player);
@@ -1498,8 +1622,10 @@ function useSkill(skill, player) {
 }
 
 function useThunderShock(skill, player) {
-    playSound('skill_q');
+    // 播放音效
+    playSound('skill_q', player);
     
+    // 创建持续伤害区域（玩家身边 4x4 范围，受强化影响）
     const buffedRange = skill.range * skillBuffs.q_range;
     const buffedDuration = (skill.duration / 1000) * skillBuffs.q_duration;
     
@@ -1508,13 +1634,14 @@ function useThunderShock(skill, player) {
         x: player.x,
         y: player.y,
         radius: buffedRange,
-        damage: skill.damage,
-        duration: buffedDuration,
+        damage: skill.damage, // 每秒伤害
+        duration: buffedDuration, // 秒
         life: buffedDuration,
         color: skill.color,
         damageTimer: 0
     });
     
+    // 初始效果
     effects.push({
         type: 'thunder_shock_start',
         x: player.x,
@@ -1525,8 +1652,10 @@ function useThunderShock(skill, player) {
 }
 
 function useThunderbolt(skill, player) {
-    playSound('skill_w');
+    // 播放音效
+    playSound('skill_w', player);
     
+    // 全屏 AOE
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
         enemy.hp -= skill.damage;
@@ -1535,7 +1664,7 @@ function useThunderbolt(skill, player) {
         if (enemy.hp <= 0) {
             gameState.score += enemy.score;
             gameState.kills++;
-            enemies.splice(i, 1);
+            enemies.splice(i, 1); // 移除死亡的敌人
             if (Math.random() < 0.3) spawnItem(enemy.x, enemy.y);
         }
     }
@@ -1550,7 +1679,8 @@ function useThunderbolt(skill, player) {
 }
 
 function useQuickAttack(skill, player) {
-    playSound('skill_e');
+    // 播放音效
+    playSound('skill_e', player);
     
     const dx = player.direction.x || 0;
     const dy = player.direction.y || 1;
@@ -1568,8 +1698,10 @@ function useQuickAttack(skill, player) {
 }
 
 function useIronTail(skill, player) {
-    playSound('skill_r');
+    // 播放音效
+    playSound('skill_r', player);
     
+    // 360 度近战
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
         const dx = enemy.x - player.x;
@@ -1581,7 +1713,7 @@ function useIronTail(skill, player) {
             addDamageNumber(enemy.x, enemy.y, skill.damage.toString(), skill.color);
             playSound('hit');
             
-            if (skill.knockback && dist > 0) {
+            if (skill.knockback) {
                 enemy.x += (dx / dist) * 50;
                 enemy.y += (dy / dist) * 50;
             }
@@ -1590,7 +1722,7 @@ function useIronTail(skill, player) {
                 gameState.score += enemy.score;
                 gameState.kills++;
                 playSound('enemy_death');
-                enemies.splice(i, 1);
+                enemies.splice(i, 1); // 移除死亡的敌人
                 if (Math.random() < 0.3) spawnItem(enemy.x, enemy.y);
             }
         }
@@ -1607,8 +1739,10 @@ function useIronTail(skill, player) {
 
 // 🐉 小火龙技能实现
 function useEmber(skill, player) {
-    playSound('skill_q');
+    // 播放音效
+    playSound('skill_q', player);
     
+    // 创建持续伤害区域（火焰环绕）
     const buffedRange = skill.range * skillBuffs.q_range;
     const buffedDuration = (skill.duration / 1000) * skillBuffs.q_duration;
     
@@ -1631,12 +1765,33 @@ function useEmber(skill, player) {
         life: 0.3,
         color: skill.color
     });
+    
+    // 生成环绕火焰粒子
+    const centerX = player.x + CONFIG.TILE_SIZE / 2;
+    const centerY = player.y + CONFIG.TILE_SIZE / 2;
+    for (let i = 0; i < 20; i++) {
+        const angle = (i / 20) * Math.PI * 2;
+        const radius = buffedRange * 0.8;
+        fireParticles.push({
+            x: centerX + Math.cos(angle) * radius,
+            y: centerY + Math.sin(angle) * radius,
+            vx: Math.cos(angle + Math.PI / 2) * 2,
+            vy: Math.sin(angle + Math.PI / 2) * 2,
+            size: 4 + Math.random() * 4,
+            color: `rgba(255, 107, 53, ALPHA)`,
+            life: 0.5 + Math.random() * 0.5,
+            maxLife: 1
+        });
+    }
 }
 
 function useFlamethrower(skill, player) {
-    playSound('skill_w');
+    // 播放音效
+    playSound('skill_w', player);
     
-    const angle = player.direction.y >= 0 ? 0 : Math.PI;
+    // 前方扇形火焰喷射
+    const angle = player.direction.y >= 0 ? 0 : Math.PI; // 面向方向
+    const range = skill.range;
     
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
@@ -1644,7 +1799,8 @@ function useFlamethrower(skill, player) {
         const dy = enemy.y - player.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         
-        if (dist <= skill.range) {
+        // 检查是否在前方扇形范围内
+        if (dist <= range) {
             const enemyAngle = Math.atan2(dy, dx);
             const angleDiff = Math.abs(enemyAngle - angle);
             
@@ -1652,6 +1808,11 @@ function useFlamethrower(skill, player) {
                 enemy.hp -= skill.damage;
                 addDamageNumber(enemy.x, enemy.y, skill.damage.toString(), skill.color);
                 playSound('hit');
+                
+                // 灼烧效果
+                if (skill.burn) {
+                    // 可以添加持续灼烧伤害
+                }
                 
                 if (enemy.hp <= 0) {
                     gameState.score += enemy.score;
@@ -1672,12 +1833,37 @@ function useFlamethrower(skill, player) {
         color: skill.color,
         angle: angle
     });
+    
+    // 生成扇形火焰粒子
+    const centerX = player.x + CONFIG.TILE_SIZE / 2;
+    const centerY = player.y + CONFIG.TILE_SIZE / 2;
+    for (let i = 0; i < 30; i++) {
+        const spreadAngle = (Math.random() - 0.5) * skill.angle;
+        const speed = 3 + Math.random() * 4;
+        fireParticles.push({
+            x: centerX,
+            y: centerY,
+            vx: Math.cos(angle + spreadAngle) * speed,
+            vy: Math.sin(angle + spreadAngle) * speed,
+            size: 5 + Math.random() * 5,
+            color: `rgba(255, 69, 0, ALPHA)`,
+            life: 0.3 + Math.random() * 0.3,
+            maxLife: 0.6
+        });
+    }
 }
 
-function useSparkOfGenius(skill, player) {
-    playSound('skill_e');
+function useDragonClaw(skill, player) {
+    // 播放音效
+    playSound('skill_e', player);
     
-    // 灵光一闪：全范围伤害 + 眩晕
+    const dx = player.direction.x || 0;
+    const dy = player.direction.y || 1;
+    player.x += dx * skill.dashDistance * CONFIG.TILE_SIZE;
+    player.y += dy * skill.dashDistance * CONFIG.TILE_SIZE;
+    player.invincible = skill.invincible;
+    
+    // 对周围敌人造成伤害
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
         const edx = enemy.x - player.x;
@@ -1689,11 +1875,6 @@ function useSparkOfGenius(skill, player) {
             addDamageNumber(enemy.x, enemy.y, skill.damage.toString(), skill.color);
             playSound('hit');
             
-            // 眩晕效果
-            if (skill.stun) {
-                enemy.stunned = skill.stun;
-            }
-            
             if (enemy.hp <= 0) {
                 gameState.score += enemy.score;
                 gameState.kills++;
@@ -1704,20 +1885,53 @@ function useSparkOfGenius(skill, player) {
         }
     }
     
-    // 灵光特效：紫色光环扩散
     effects.push({
-        type: 'spark_of_genius',
+        type: 'dragon_claw',
         x: player.x,
         y: player.y,
-        life: 0.5,
-        color: skill.color,
-        maxRadius: skill.range
+        life: 0.3,
+        color: skill.color
     });
+    
+    // 生成冲刺轨迹粒子
+    const endX = player.x + CONFIG.TILE_SIZE / 2;
+    const endY = player.y + CONFIG.TILE_SIZE / 2;
+    for (let i = 0; i < 25; i++) {
+        const t = i / 25;
+        fireParticles.push({
+            x: endX - (player.direction.x || 0) * skill.dashDistance * CONFIG.TILE_SIZE * t,
+            y: endY - (player.direction.y || 1) * skill.dashDistance * CONFIG.TILE_SIZE * t,
+            vx: (Math.random() - 0.5) * 3,
+            vy: (Math.random() - 0.5) * 3,
+            size: 6 + Math.random() * 4,
+            color: `rgba(255, 140, 0, ALPHA)`,
+            life: 0.4 + Math.random() * 0.3,
+            maxLife: 0.7
+        });
+    }
+    
+    // 终点爆炸粒子
+    for (let i = 0; i < 40; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 5;
+        fireParticles.push({
+            x: endX,
+            y: endY,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            size: 4 + Math.random() * 4,
+            color: `rgba(255, 69, 0, ALPHA)`,
+            life: 0.6 + Math.random() * 0.4,
+            maxLife: 1
+        });
+    }
 }
 
 function useFireSpin(skill, player) {
-    playSound('skill_r');
+    // 播放音效
+    playSound('skill_r', player);
     
+    // 创建火焰旋涡区域
     const buffedRange = skill.range * skillBuffs.q_range;
     const buffedDuration = (skill.duration / 1000) * skillBuffs.q_duration;
     
@@ -1741,51 +1955,27 @@ function useFireSpin(skill, player) {
         life: 0.5,
         color: skill.color
     });
-}
-
-// 火焰喷射器伤害检测
-function applyFlamethrowerDamage(angle) {
-    const skill = SKILLS.flamethrower;
-    const range = skill.range;
-    const halfAngle = skill.angle / 2;
     
-    for (let i = enemies.length - 1; i >= 0; i--) {
-        const enemy = enemies[i];
-        const dx = enemy.x - player.x;
-        const dy = enemy.y - player.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const enemyAngle = Math.atan2(dy, dx);
-        
-        let angleDiff = enemyAngle - angle;
-        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-        
-        if (dist <= range && Math.abs(angleDiff) <= halfAngle) {
-            enemy.hp -= skill.damage;
-            addDamageNumber(enemy.x, enemy.y, skill.damage.toString(), skill.color);
-            playSound('hit');
-                
-            if (enemy.hp <= 0) {
-                gameState.score += enemy.score;
-                gameState.kills++;
-                playSound('enemy_death');
-                enemies.splice(i, 1);
-                if (Math.random() < 0.3) spawnItem(enemy.x, enemy.y);
-            }
-        }
+    // 生成旋涡火焰粒子
+    const centerX = player.x + CONFIG.TILE_SIZE / 2;
+    const centerY = player.y + CONFIG.TILE_SIZE / 2;
+    for (let i = 0; i < 35; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const radius = Math.random() * buffedRange * 0.8;
+        const tangentSpeed = 2;
+        const inwardSpeed = 0.5;
+        fireParticles.push({
+            x: centerX + Math.cos(angle) * radius,
+            y: centerY + Math.sin(angle) * radius,
+            vx: -Math.sin(angle) * tangentSpeed - Math.cos(angle) * inwardSpeed,
+            vy: Math.cos(angle) * tangentSpeed - Math.sin(angle) * inwardSpeed,
+            size: 5 + Math.random() * 5,
+            color: `rgba(220, 20, 60, ALPHA)`,
+            life: 0.8 + Math.random() * 0.6,
+            maxLife: 1.4
+        });
     }
-    
-    effects.push({
-        type: 'flamethrower',
-        x: player.x,
-        y: player.y,
-        life: 0.5,
-        color: skill.color,
-        angle: angle
-    });
 }
-
-// useFireSpin 已在上面定义 (1718 行)
 
 // ==================== 渲染 ====================
 function render() {
@@ -1999,74 +2189,109 @@ function renderProjectiles(ctx) {
 
 function renderEffects(ctx) {
     effects.forEach(effect => {
-        // ⚡ 皮卡丘技能效果
         if (effect.type === 'thunderbolt') {
+            // 全屏闪电效果
             ctx.fillStyle = `rgba(255, 215, 0, ${effect.life * 2})`;
             ctx.fillRect(0, 0, CONFIG.CANVAS_WIDTH * 3, CONFIG.CANVAS_HEIGHT * 3);
-        } else if (effect.type === 'thunder_shock_start') {
-            ctx.fillStyle = `rgba(255, 215, 0, ${effect.life * 3})`;
-            ctx.beginPath();
-            ctx.arc(effect.x + CONFIG.TILE_SIZE / 2, effect.y + CONFIG.TILE_SIZE / 2, 60, 0, Math.PI * 2);
-            ctx.fill();
-        } else if (effect.type === 'dash') {
+        } else if (effect.type === 'skill' || effect.type === 'dash' || effect.type === 'iron_tail') {
             ctx.fillStyle = effect.color;
-            ctx.globalAlpha = effect.life * 2;
+            ctx.globalAlpha = effect.life;
             ctx.beginPath();
-            ctx.arc(effect.x + CONFIG.TILE_SIZE / 2, effect.y + CONFIG.TILE_SIZE / 2, 30, 0, Math.PI * 2);
+            ctx.arc(effect.x + CONFIG.TILE_SIZE / 2, effect.y + CONFIG.TILE_SIZE / 2, 40, 0, Math.PI * 2);
             ctx.fill();
             ctx.globalAlpha = 1;
         }
         // 🐉 小火龙技能效果
         else if (effect.type === 'ember_start') {
-            ctx.fillStyle = `rgba(255, 107, 53, ${effect.life * 3})`;
+            // 火花环绕爆发效果
+            ctx.save();
+            ctx.globalAlpha = effect.life * 2;
+            ctx.fillStyle = '#FF6B35';
             ctx.beginPath();
             ctx.arc(effect.x + CONFIG.TILE_SIZE / 2, effect.y + CONFIG.TILE_SIZE / 2, 60, 0, Math.PI * 2);
             ctx.fill();
-        } else if (effect.type === 'flamethrower') {
+            ctx.restore();
+        }
+        else if (effect.type === 'flamethrower') {
             // 扇形火焰喷射
             ctx.save();
             ctx.translate(effect.x + CONFIG.TILE_SIZE / 2, effect.y + CONFIG.TILE_SIZE / 2);
             ctx.rotate(effect.angle || 0);
-            ctx.fillStyle = `rgba(255, 69, 0, ${effect.life * 2})`;
+            
+            // 绘制扇形区域
+            const alpha = effect.life * 2;
+            const gradient = ctx.createRadialGradient(0, 0, 10, 0, 0, 200);
+            gradient.addColorStop(0, `rgba(255, 69, 0, ${alpha})`);
+            gradient.addColorStop(1, `rgba(255, 69, 0, 0)`);
+            ctx.fillStyle = gradient;
             ctx.beginPath();
             ctx.moveTo(0, 0);
             ctx.arc(0, 0, 200, -Math.PI / 6, Math.PI / 6);
             ctx.closePath();
             ctx.fill();
-            ctx.restore();
-        } else if (effect.type === 'spark_of_genius') {
-            // 灵光一闪：紫色光环扩散效果
-            const radius = (1 - effect.life / 0.5) * effect.maxRadius;
-            ctx.fillStyle = `rgba(155, 89, 182, ${effect.life * 2})`;
-            ctx.beginPath();
-            ctx.arc(effect.x + CONFIG.TILE_SIZE / 2, effect.y + CONFIG.TILE_SIZE / 2, radius, 0, Math.PI * 2);
-            ctx.fill();
-            // 灵光波纹
-            ctx.strokeStyle = `rgba(200, 150, 255, ${effect.life * 3})`;
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.arc(effect.x + CONFIG.TILE_SIZE / 2, effect.y + CONFIG.TILE_SIZE / 2, radius * 0.7, 0, Math.PI * 2);
-            ctx.stroke();
-        } else if (effect.type === 'fire_spin') {
-            ctx.fillStyle = `rgba(220, 20, 60, ${effect.life * 2})`;
-            ctx.beginPath();
-            ctx.arc(effect.x + CONFIG.TILE_SIZE / 2, effect.y + CONFIG.TILE_SIZE / 2, 80, 0, Math.PI * 2);
-            ctx.fill();
-            // 火焰旋涡效果
-            ctx.strokeStyle = `rgba(255, 100, 0, ${effect.life * 2})`;
-            ctx.lineWidth = 4;
-            for (let i = 0; i < 4; i++) {
-                const angle = (Date.now() / 100 + i * 90) * Math.PI / 180;
+            
+            // 火焰粒子效果
+            for (let i = 0; i < 10; i++) {
+                const angle = (Math.random() - 0.5) * Math.PI / 3;
+                const dist = Math.random() * 150;
+                const size = 5 + Math.random() * 8;
+                ctx.fillStyle = `rgba(255, ${100 + Math.random() * 100}, 0, ${alpha * (1 - dist / 200)})`;
                 ctx.beginPath();
-                ctx.arc(
-                    effect.x + CONFIG.TILE_SIZE / 2 + Math.cos(angle) * 40,
-                    effect.y + CONFIG.TILE_SIZE / 2 + Math.sin(angle) * 40,
-                    10, 0, Math.PI * 2
-                );
+                ctx.arc(Math.cos(angle) * dist, Math.sin(angle) * dist, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+        else if (effect.type === 'dragon_claw') {
+            // 龙之爪冲刺轨迹 + 爆炸
+            ctx.save();
+            ctx.globalAlpha = effect.life * 2;
+            
+            // 爪痕轨迹
+            ctx.strokeStyle = 'rgba(255, 140, 0, 0.6)';
+            ctx.lineWidth = 25;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(effect.x - 80, effect.y + CONFIG.TILE_SIZE / 2);
+            ctx.lineTo(effect.x + CONFIG.TILE_SIZE / 2, effect.y + CONFIG.TILE_SIZE / 2);
+            ctx.stroke();
+            
+            // 爆炸效果
+            ctx.fillStyle = 'rgba(255, 69, 0, 0.8)';
+            ctx.beginPath();
+            ctx.arc(effect.x + CONFIG.TILE_SIZE / 2, effect.y + CONFIG.TILE_SIZE / 2, 50 * (1 - effect.life), 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+        else if (effect.type === 'fire_spin') {
+            // 火焰旋涡爆发效果
+            ctx.save();
+            ctx.globalAlpha = effect.life * 2;
+            
+            // 多层旋涡
+            for (let ring = 0; ring < 3; ring++) {
+                const radius = 30 + ring * 25;
+                const rotation = Date.now() / 200 + ring;
+                ctx.strokeStyle = `rgba(220, 20, 60, ${0.6 - ring * 0.15})`;
+                ctx.lineWidth = 8;
+                ctx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    const angle = rotation + (i / 6) * Math.PI * 2;
+                    const x = effect.x + CONFIG.TILE_SIZE / 2 + Math.cos(angle) * radius;
+                    const y = effect.y + CONFIG.TILE_SIZE / 2 + Math.sin(angle) * radius;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
                 ctx.stroke();
             }
+            ctx.restore();
         }
     });
+    
+    // 渲染火焰粒子
+    renderFireParticles(ctx);
 }
 
 function renderDamageNumbers(ctx) {
@@ -2078,16 +2303,41 @@ function renderDamageNumbers(ctx) {
     });
 }
 
+// 🐉 火焰粒子渲染
+function renderFireParticles(ctx) {
+    fireParticles.forEach(p => {
+        const alpha = p.life / p.maxLife;
+        
+        // 发光效果
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = p.color;
+        
+        // 粒子主体
+        ctx.fillStyle = p.color.replace('ALPHA', alpha.toFixed(2));
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 内层亮色
+        ctx.fillStyle = `rgba(255, 255, 200, ${alpha * 0.8})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    ctx.shadowBlur = 0;
+}
+
 function renderSkillZones(ctx) {
     skillZones.forEach(zone => {
-        // ⚡ 皮卡丘 Q 技能 - 电击
         if (zone.type === 'thunder_shock') {
-            const alpha = 0.3 + 0.2 * Math.sin(Date.now() / 100);
+            // 绘制圆形闪电区域
+            const alpha = 0.3 + 0.2 * Math.sin(Date.now() / 100); // 闪烁效果
             ctx.fillStyle = `rgba(255, 215, 0, ${alpha})`;
             ctx.beginPath();
             ctx.arc(zone.x + CONFIG.TILE_SIZE / 2, zone.y + CONFIG.TILE_SIZE / 2, zone.radius, 0, Math.PI * 2);
             ctx.fill();
             
+            // 边缘发光
             ctx.strokeStyle = `rgba(255, 215, 0, ${alpha + 0.3})`;
             ctx.lineWidth = 3;
             ctx.stroke();
@@ -2106,23 +2356,26 @@ function renderSkillZones(ctx) {
                 ctx.fill();
             }
         }
-        // 🐉 小火龙 Q 技能 - 火花
+        // 🐉 小火龙 - 火花环绕区域
         else if (zone.type === 'ember') {
-            const alpha = 0.3 + 0.2 * Math.sin(Date.now() / 100);
+            const alpha = 0.25 + 0.15 * Math.sin(Date.now() / 150);
+            
+            // 火焰区域背景
             ctx.fillStyle = `rgba(255, 107, 53, ${alpha})`;
             ctx.beginPath();
             ctx.arc(zone.x + CONFIG.TILE_SIZE / 2, zone.y + CONFIG.TILE_SIZE / 2, zone.radius, 0, Math.PI * 2);
             ctx.fill();
             
+            // 边缘发光
             ctx.strokeStyle = `rgba(255, 69, 0, ${alpha + 0.3})`;
             ctx.lineWidth = 3;
             ctx.stroke();
             
-            // 火焰粒子
-            ctx.fillStyle = `rgba(255, 200, 0, ${alpha * 0.8})`;
-            for (let i = 0; i < 8; i++) {
-                const angle = (Date.now() / 150 + i * 45) * Math.PI / 180;
-                const r = zone.radius * 0.6;
+            // 旋转的火焰纹路
+            ctx.fillStyle = `rgba(255, 200, 50, ${alpha * 0.6})`;
+            for (let i = 0; i < 6; i++) {
+                const angle = (Date.now() / 300 + i * 60) * Math.PI / 180;
+                const r = zone.radius * (0.3 + 0.4 * Math.sin(Date.now() / 500 + i));
                 ctx.beginPath();
                 ctx.arc(
                     zone.x + CONFIG.TILE_SIZE / 2 + Math.cos(angle) * r,
@@ -2132,28 +2385,50 @@ function renderSkillZones(ctx) {
                 ctx.fill();
             }
         }
-        // 🐉 小火龙 R 技能 - 火焰旋涡
+        // 🐉 小火龙 - 火焰旋涡区域
         else if (zone.type === 'fire_spin') {
-            const alpha = 0.3 + 0.2 * Math.sin(Date.now() / 120);
-            ctx.fillStyle = `rgba(220, 20, 60, ${alpha})`;
+            const alpha = 0.3 + 0.2 * Math.sin(Date.now() / 200);
+            
+            // 旋涡背景
+            const gradient = ctx.createRadialGradient(
+                zone.x + CONFIG.TILE_SIZE / 2, zone.y + CONFIG.TILE_SIZE / 2, 0,
+                zone.x + CONFIG.TILE_SIZE / 2, zone.y + CONFIG.TILE_SIZE / 2, zone.radius
+            );
+            gradient.addColorStop(0, `rgba(255, 69, 0, ${alpha * 0.8})`);
+            gradient.addColorStop(0.5, `rgba(220, 20, 60, ${alpha * 0.5})`);
+            gradient.addColorStop(1, `rgba(255, 69, 0, 0)`);
+            ctx.fillStyle = gradient;
             ctx.beginPath();
             ctx.arc(zone.x + CONFIG.TILE_SIZE / 2, zone.y + CONFIG.TILE_SIZE / 2, zone.radius, 0, Math.PI * 2);
             ctx.fill();
             
-            ctx.strokeStyle = `rgba(255, 69, 0, ${alpha + 0.3})`;
-            ctx.lineWidth = 4;
-            ctx.stroke();
+            // 旋转的火焰臂
+            ctx.save();
+            ctx.translate(zone.x + CONFIG.TILE_SIZE / 2, zone.y + CONFIG.TILE_SIZE / 2);
+            ctx.rotate(Date.now() / 400);
+            for (let arm = 0; arm < 4; arm++) {
+                ctx.rotate(Math.PI / 2);
+                ctx.strokeStyle = `rgba(255, 140, 0, ${alpha})`;
+                ctx.lineWidth = 6;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.quadraticCurveTo(
+                    zone.radius * 0.5, zone.radius * 0.3,
+                    zone.radius * 0.8, zone.radius * 0.1
+                );
+                ctx.stroke();
+            }
+            ctx.restore();
             
-            // 旋涡效果
-            ctx.fillStyle = `rgba(255, 140, 0, ${alpha * 0.7})`;
-            for (let i = 0; i < 6; i++) {
-                const angle = (Date.now() / 100 + i * 60) * Math.PI / 180;
-                const r = zone.radius * 0.7;
+            // 边缘火花
+            ctx.fillStyle = `rgba(255, 200, 50, ${alpha * 0.8})`;
+            for (let i = 0; i < 8; i++) {
+                const angle = (Date.now() / 300 + i * 45) * Math.PI / 180;
                 ctx.beginPath();
                 ctx.arc(
-                    zone.x + CONFIG.TILE_SIZE / 2 + Math.cos(angle) * r,
-                    zone.y + CONFIG.TILE_SIZE / 2 + Math.sin(angle) * r,
-                    8, 0, Math.PI * 2
+                    zone.x + CONFIG.TILE_SIZE / 2 + Math.cos(angle) * zone.radius * 0.7,
+                    zone.y + CONFIG.TILE_SIZE / 2 + Math.sin(angle) * zone.radius * 0.7,
+                    5, 0, Math.PI * 2
                 );
                 ctx.fill();
             }
@@ -2221,7 +2496,7 @@ function renderMinimap(ctx, cameraX, cameraY, mapWidthPx, mapHeightPx) {
 }
 
 function updateUI() {
-    // 英雄显示
+    // 英雄显示（双人模式显示两个）
     const hero1 = HEROES[player1.hero || 'pikachu'];
     const heroDisplay = document.getElementById('hero-name');
     if (heroDisplay) {
@@ -2237,47 +2512,17 @@ function updateUI() {
     document.getElementById('score-display').textContent = gameState.score;
     document.getElementById('time-display').textContent = Math.floor(gameState.levelTime);
     
-    // 显示/隐藏玩家 2 状态栏
-    const p2Stats = document.getElementById('player2-stats');
-    if (p2Stats) {
-        p2Stats.style.display = gameState.playerCount === 2 ? 'block' : 'none';
-    }
+    // 血条（显示玩家 1 的）
+    const hpPercent = (player1.hp / player1.maxHp) * 100;
+    document.getElementById('health-fill').style.width = `${Math.max(0, hpPercent)}%`;
+    document.getElementById('health-text').textContent = `${Math.ceil(player1.hp)}/${player1.maxHp}`;
     
-    // 更新玩家名称
-    const p1NameEl = document.getElementById('player1-name');
-    const p2NameEl = document.getElementById('player2-name');
-    if (p1NameEl) p1NameEl.textContent = hero1.name;
-    if (p2NameEl) {
-        const hero2 = HEROES[player2.hero || 'charmander'];
-        p2NameEl.textContent = hero2.name;
-    }
+    // 能量条（显示玩家 1 的）
+    const energyPercent = (player1.energy / player1.maxEnergy) * 100;
+    document.getElementById('energy-fill').style.width = `${energyPercent}%`;
+    document.getElementById('energy-text').textContent = `${Math.floor(player1.energy)}/${player1.maxEnergy}`;
     
-    // 玩家 1 血条和能量条
-    updatePlayerStats(1, player1);
-    
-    // 玩家 2 血条和能量条（双人模式）
-    if (gameState.playerCount === 2) {
-        updatePlayerStats(2, player2);
-    }
-    
-    // 技能冷却（显示玩家 1 的技能）
-    updateSkillUI(player1);
-}
-
-// 更新玩家状态栏
-function updatePlayerStats(playerNum, player) {
-    const hpPercent = (player.hp / player.maxHp) * 100;
-    const energyPercent = (player.energy / player.maxEnergy) * 100;
-    
-    document.getElementById(`health-fill${playerNum > 1 ? '-p' + playerNum : ''}`).style.width = `${Math.max(0, hpPercent)}%`;
-    document.getElementById(`health-text${playerNum > 1 ? '-p' + playerNum : ''}`).textContent = `${Math.ceil(player.hp)}/${player.maxHp}`;
-    
-    document.getElementById(`energy-fill${playerNum > 1 ? '-p' + playerNum : ''}`).style.width = `${energyPercent}%`;
-    document.getElementById(`energy-text${playerNum > 1 ? '-p' + playerNum : ''}`).textContent = `${Math.floor(player.energy)}/${player.maxEnergy}`;
-}
-
-// 更新技能 UI
-function updateSkillUI(player) {
+    // 技能冷却（显示所有 4 个技能槽）
     const now = Date.now();
     const allSkillKeys = ['q', 'w', 'e', 'r'];
     
@@ -2288,7 +2533,7 @@ function updateSkillUI(player) {
             const nameEl = slot.querySelector('.skill-name');
             
             // 找到对应的技能
-            const skill = player.skills.find(s => s.key.toLowerCase() === key);
+            const skill = player1.skills.find(s => s.key.toLowerCase() === key);
             
             if (skill) {
                 // 有该技能，显示名称
@@ -2296,7 +2541,7 @@ function updateSkillUI(player) {
                     nameEl.textContent = skill.name;
                 }
                 
-                const cooldown = player.skillCooldowns[skill.id] || 0;
+                const cooldown = player1.skillCooldowns[skill.id] || 0;
                 
                 if (cooldown > now) {
                     slot.classList.add('on-cooldown');
@@ -2307,15 +2552,14 @@ function updateSkillUI(player) {
                     slot.classList.remove('on-cooldown');
                     bar.style.height = '0%';
                 }
-                slot.style.opacity = '1';
             } else {
-                // 没有该技能
+                // 没有该技能，隐藏或显示为空
                 if (nameEl) {
                     nameEl.textContent = '-';
                 }
                 bar.style.height = '0%';
                 slot.classList.remove('on-cooldown');
-                slot.style.opacity = '0.3';
+                slot.style.opacity = '0.5';
             }
         }
     });
