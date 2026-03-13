@@ -743,6 +743,15 @@ function startLevel(levelNum) {
     // 生成地图
     generateMap(levelConfig);
     
+    // 🔄 每局开始，血量恢复到满血状态（保留升级效果）
+    player1.hp = player1.maxHp;
+    player1.energy = player1.maxEnergy;
+    
+    if (gameState.playerCount === 2) {
+        player2.hp = player2.maxHp;
+        player2.energy = player2.maxEnergy;
+    }
+    
     // 设置玩家位置（双人模式分开站位）
     player1.x = Math.floor(levelConfig.mapWidth / 2) * CONFIG.TILE_SIZE;
     player1.y = Math.floor(levelConfig.mapHeight / 2) * CONFIG.TILE_SIZE;
@@ -2512,35 +2521,52 @@ function updateUI() {
     document.getElementById('score-display').textContent = gameState.score;
     document.getElementById('time-display').textContent = Math.floor(gameState.levelTime);
     
-    // 血条（显示玩家 1 的）
-    const hpPercent = (player1.hp / player1.maxHp) * 100;
-    document.getElementById('health-fill').style.width = `${Math.max(0, hpPercent)}%`;
-    document.getElementById('health-text').textContent = `${Math.ceil(player1.hp)}/${player1.maxHp}`;
+    // 玩家 1 状态更新（始终显示）
+    const p1HpPercent = (player1.hp / player1.maxHp) * 100;
+    document.getElementById('p1-health-fill').style.width = `${Math.max(0, p1HpPercent)}%`;
+    document.getElementById('p1-health-text').textContent = `${Math.ceil(player1.hp)}/${player1.maxHp}`;
     
-    // 能量条（显示玩家 1 的）
-    const energyPercent = (player1.energy / player1.maxEnergy) * 100;
-    document.getElementById('energy-fill').style.width = `${energyPercent}%`;
-    document.getElementById('energy-text').textContent = `${Math.floor(player1.energy)}/${player1.maxEnergy}`;
+    const p1EnergyPercent = (player1.energy / player1.maxEnergy) * 100;
+    document.getElementById('p1-energy-fill').style.width = `${p1EnergyPercent}%`;
+    document.getElementById('p1-energy-text').textContent = `${Math.floor(player1.energy)}/${player1.maxEnergy}`;
     
-    // 技能冷却（显示所有 4 个技能槽）
+    // 玩家 1 英雄名显示
+    document.getElementById('p1-hero').textContent = `${hero1.emoji} ${hero1.name}`;
+    
+    // 玩家 2 状态更新（双人模式）
+    const p2StatsEl = document.getElementById('player2-stats');
+    if (gameState.playerCount === 2) {
+        p2StatsEl.style.display = 'flex';
+        const hero2 = HEROES[player2.hero || 'charmander'];
+        
+        const p2HpPercent = (player2.hp / player2.maxHp) * 100;
+        document.getElementById('p2-health-fill').style.width = `${Math.max(0, p2HpPercent)}%`;
+        document.getElementById('p2-health-text').textContent = `${Math.ceil(player2.hp)}/${player2.maxHp}`;
+        
+        const p2EnergyPercent = (player2.energy / player2.maxEnergy) * 100;
+        document.getElementById('p2-energy-fill').style.width = `${p2EnergyPercent}%`;
+        document.getElementById('p2-energy-text').textContent = `${Math.floor(player2.energy)}/${player2.maxEnergy}`;
+        
+        document.getElementById('p2-hero').textContent = `${hero2.emoji} ${hero2.name}`;
+    } else {
+        p2StatsEl.style.display = 'none';
+    }
+    
+    // 技能冷却显示
     const now = Date.now();
     const allSkillKeys = ['q', 'w', 'e', 'r'];
     
+    // 玩家 1 技能栏（始终显示）
     allSkillKeys.forEach(key => {
         const slot = document.getElementById(`skill-${key}`);
         if (slot) {
             const bar = slot.querySelector('.cooldown-bar');
             const nameEl = slot.querySelector('.skill-name');
             
-            // 找到对应的技能
             const skill = player1.skills.find(s => s.key.toLowerCase() === key);
             
             if (skill) {
-                // 有该技能，显示名称
-                if (nameEl) {
-                    nameEl.textContent = skill.name;
-                }
-                
+                if (nameEl) nameEl.textContent = skill.name;
                 const cooldown = player1.skillCooldowns[skill.id] || 0;
                 
                 if (cooldown > now) {
@@ -2553,16 +2579,51 @@ function updateUI() {
                     bar.style.height = '0%';
                 }
             } else {
-                // 没有该技能，隐藏或显示为空
-                if (nameEl) {
-                    nameEl.textContent = '-';
-                }
+                if (nameEl) nameEl.textContent = '-';
                 bar.style.height = '0%';
                 slot.classList.remove('on-cooldown');
                 slot.style.opacity = '0.5';
             }
         }
     });
+    
+    // 玩家 2 技能栏（双人模式）
+    const p2SkillsEl = document.getElementById('player2-skills');
+    if (gameState.playerCount === 2) {
+        p2SkillsEl.style.display = 'flex';
+        
+        allSkillKeys.forEach(key => {
+            const slot = document.getElementById(`p2-skill-${key}`);
+            if (slot) {
+                const bar = slot.querySelector('.cooldown-bar');
+                const nameEl = slot.querySelector('.skill-name');
+                
+                const skill = player2.skills.find(s => s.key.toLowerCase() === key);
+                
+                if (skill) {
+                    if (nameEl) nameEl.textContent = skill.name;
+                    const cooldown = player2.skillCooldowns[skill.id] || 0;
+                    
+                    if (cooldown > now) {
+                        slot.classList.add('on-cooldown');
+                        const remaining = cooldown - now;
+                        const percent = (remaining / skill.cooldown) * 100;
+                        bar.style.height = `${percent}%`;
+                    } else {
+                        slot.classList.remove('on-cooldown');
+                        bar.style.height = '0%';
+                    }
+                } else {
+                    if (nameEl) nameEl.textContent = '-';
+                    bar.style.height = '0%';
+                    slot.classList.remove('on-cooldown');
+                    slot.style.opacity = '0.5';
+                }
+            }
+        });
+    } else {
+        p2SkillsEl.style.display = 'none';
+    }
 }
 
 function toggleMute() {

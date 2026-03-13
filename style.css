@@ -147,13 +147,30 @@ body {
 
 #stats-bar {
     display: flex;
-    gap: 20px;
+    justify-content: space-between;
+    gap: 30px;
     margin-bottom: 10px;
+    min-width: 600px;
 }
 
-#health-bar, #energy-bar {
+.player-stats {
     flex: 1;
-    height: 25px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 200px;
+}
+
+.player-label {
+    font-size: 0.9em;
+    font-weight: bold;
+    color: #FFD700;
+    text-align: center;
+    margin-bottom: 2px;
+}
+
+.health-bar, .energy-bar {
+    height: 22px;
     background: #333;
     border-radius: 12px;
     position: relative;
@@ -161,39 +178,54 @@ body {
     border: 2px solid #555;
 }
 
-#health-fill {
+.health-bar {
+    border-color: #FF6B6B;
+}
+
+.energy-bar {
+    border-color: #74B9FF;
+}
+
+#p1-health-fill, #p2-health-fill {
     height: 100%;
     background: linear-gradient(90deg, #FF6B6B 0%, #FF4757 100%);
     width: 100%;
     transition: width 0.3s;
 }
 
-#energy-fill {
+#p1-energy-fill, #p2-energy-fill {
     height: 100%;
     background: linear-gradient(90deg, #74B9FF 0%, #0984E3 100%);
     width: 100%;
     transition: width 0.3s;
 }
 
-#health-text, #energy-text {
+#p1-health-text, #p2-health-text, #p1-energy-text, #p2-energy-text {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 0.85em;
+    font-size: 0.8em;
     font-weight: bold;
     text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+    z-index: 1;
 }
 
 #skills-bar {
     display: flex;
+    justify-content: space-between;
+    gap: 30px;
+    min-width: 600px;
+}
+
+.player-skills {
+    display: flex;
     gap: 10px;
-    justify-content: center;
 }
 
 .skill-slot {
-    width: 80px;
-    height: 70px;
+    width: 70px;
+    height: 65px;
     background: linear-gradient(135deg, #2d3436 0%, #000000 100%);
     border: 2px solid #555;
     border-radius: 10px;
@@ -203,6 +235,11 @@ body {
     justify-content: center;
     position: relative;
     overflow: hidden;
+}
+
+/* 玩家 2 技能栏边框颜色区分 */
+#player2-skills .skill-slot {
+    border-color: #FF6B35;
 }
 
 .skill-slot.on-cooldown {
