@@ -194,6 +194,12 @@ const TERRAIN = {
     grass: { emoji: '🟩', walkable: true, effect: null }  // 添加草地地形
 };
 
+// 计算技能伤害（考虑攻击力加成）
+function calculateSkillDamage(skill, player) {
+    const attackMultiplier = player.attack || 1;
+    return Math.floor(skill.damage * attackMultiplier);
+}
+
 // ==================== 游戏状态 ====================
 let gameState = {
     screen: 'main-menu', // main-menu, skill-select, game, level-complete, game-over, pause
@@ -632,6 +638,7 @@ function initPlayers() {
     player1.skillCooldowns = {};
     player1.invincible = 0;
     player1.defense = 0;
+    player1.attack = 1;  // 基础攻击力 100%
     skillBuffs = { q_range: 1, q_duration: 1 };
     
     // 玩家 2 基础属性
@@ -641,6 +648,7 @@ function initPlayers() {
     player2.skillCooldowns = {};
     player2.invincible = 0;
     player2.defense = 0;
+    player2.attack = 1;  // 基础攻击力 100%
 }
 
 function generateHeroOptions() {
@@ -1277,26 +1285,29 @@ function spawnItem(x, y) {
     const types = [
         'hp',           // 50% - 回血
         'energy',       // 25% - 回能量
-        'skillpoint',   // 10% - 减冷却
+        'attack',       // 10% - 永久增加攻击力
+        'defense',      // 5% - 永久增加防御力
         'q_range',      // 5% - 增加 Q 范围
-        'q_duration',   // 5% - 增加 Q 持续时间
-        'max_hp',       // 3% - 永久增加最大生命
-        'max_energy',   // 2% - 永久增加最大能量
+        'q_duration',   // 3% - 增加 Q 持续时间
+        'max_hp',       // 1.5% - 永久增加最大生命
+        'max_energy',   // 0.5% - 永久增加最大能量
     ];
     
     const rand = Math.random();
     let type = 'hp';
     if (rand > 0.50) type = 'energy';
-    if (rand > 0.75) type = 'skillpoint';
-    if (rand > 0.85) type = 'q_range';
-    if (rand > 0.90) type = 'q_duration';
-    if (rand > 0.95) type = 'max_hp';
-    if (rand > 0.97) type = 'max_energy';
+    if (rand > 0.75) type = 'attack';
+    if (rand > 0.85) type = 'defense';
+    if (rand > 0.90) type = 'q_range';
+    if (rand > 0.95) type = 'q_duration';
+    if (rand > 0.98) type = 'max_hp';
+    if (rand > 0.995) type = 'max_energy';
     
     const emojis = {
         hp: '🍎',
         energy: '⚡',
-        skillpoint: '✨',
+        attack: '⚔️',
+        defense: '🛡️',
         q_range: '📡',
         q_duration: '⏱️',
         max_hp: '💖',
@@ -1306,7 +1317,8 @@ function spawnItem(x, y) {
     const colors = {
         hp: '#4ECDC4',
         energy: '#74B9FF',
-        skillpoint: '#FFD700',
+        attack: '#FF6B6B',
+        defense: '#95A5A6',
         q_range: '#FF6B6B',
         q_duration: '#A8E6CF',
         max_hp: '#FF85A2',
@@ -1324,7 +1336,7 @@ function spawnItem(x, y) {
 
 function applyItem(item, player) {
     // 播放拾取音效
-    const rareTypes = ['q_range', 'q_duration', 'max_hp', 'max_energy'];
+    const rareTypes = ['attack', 'defense', 'q_range', 'q_duration', 'max_hp', 'max_energy'];
     if (rareTypes.includes(item.type)) {
         playSound('pickup_rare');
     } else {
@@ -1337,13 +1349,14 @@ function applyItem(item, player) {
     } else if (item.type === 'energy') {
         player.energy = Math.min(player.maxEnergy, player.energy + 30);
         addDamageNumber(player.x, player.y, '+30 MP', '#74B9FF');
-    } else if (item.type === 'skillpoint') {
-        player.skills.forEach(skill => {
-            if (player.skillCooldowns[skill.id]) {
-                player.skillCooldowns[skill.id] = Math.max(0, player.skillCooldowns[skill.id] - 2000);
-            }
-        });
-        addDamageNumber(player.x, player.y, '技能点!', '#FFD700');
+    } else if (item.type === 'attack') {
+        // 初始化攻击力（如果还没有）
+        if (!player.attack) player.attack = 1;
+        player.attack += 0.2;  // 增加 20% 伤害
+        addDamageNumber(player.x, player.y, '攻击力 +20%!', '#FF6B6B');
+    } else if (item.type === 'defense') {
+        player.defense += 2;  // 增加 2 点防御
+        addDamageNumber(player.x, player.y, '防御力 +2!', '#95A5A6');
     } else if (item.type === 'q_range') {
         skillBuffs.q_range = Math.min(2.0, skillBuffs.q_range + 0.2);
         addDamageNumber(player.x, player.y, 'Q 范围 UP!', '#FF6B6B');
@@ -1420,16 +1433,17 @@ function addDamageNumber(x, y, text, color) {
 }
 
 function checkLevelComplete() {
-    const levelConfig = LEVELS[Math.min(gameState.level - 1, 2)];
+    // 第 4 关及以后沿用第 3 关配置（无限模式）
+    const levelIndex = Math.min(gameState.level - 1, 2);
+    const levelConfig = LEVELS[levelIndex];
     
-    // 检查时间或击杀数
-    if (gameState.levelTime >= levelConfig.duration || gameState.kills >= levelConfig.killGoal) {
-        if (gameState.level < 3) {
-            levelComplete();
-        } else if (gameState.level === 3 && !enemies.some(e => e.type === 'mewtwo')) {
-            // 第 3 关需要击败 Boss
-            levelComplete();
-        }
+    // 检查完成条件：时间 OR 击杀数
+    const timeReached = gameState.levelTime >= levelConfig.duration;
+    const killsReached = gameState.kills >= levelConfig.killGoal;
+    
+    if (timeReached || killsReached) {
+        // 无限模式：每关完成后进入下一关
+        levelComplete();
     }
 }
 
@@ -1500,7 +1514,7 @@ function gameOver() {
     // 播放游戏结束音效
     playSound('game_over');
     
-    // 记录最高解锁关卡（失败关卡）
+    // 记录最高关卡（无限模式）
     gameState.maxUnlockedLevel = Math.max(gameState.maxUnlockedLevel, gameState.level);
     
     gameState.screen = 'game-over';
@@ -1511,12 +1525,14 @@ function gameOver() {
     `;
     
     document.getElementById('final-stats').innerHTML = `
-        关卡：${gameState.level}<br>
-        击杀：${gameState.kills}<br>
+        到达关卡：${gameState.level}<br>
+        本关击杀：${gameState.kills}<br>
         生存时间：${Math.floor(gameState.levelTime)}秒<br>
         <br>
         <span style="color: #FF6B6B;">💀 败北关卡：第 ${gameState.level} 关</span><br>
-        <span style="color: #4ECDC4;">📌 下次可从第 ${gameState.maxUnlockedLevel} 关重新开始</span>
+        <span style="color: #4ECDC4;">🏆 最高记录：第 ${gameState.maxUnlockedLevel} 关</span><br>
+        <br>
+        <span style="color: #FFD700;">🎮 无限模式 - 看看能撑多久！</span>
     `;
 }
 
@@ -1637,13 +1653,14 @@ function useThunderShock(skill, player) {
     // 创建持续伤害区域（玩家身边 4x4 范围，受强化影响）
     const buffedRange = skill.range * skillBuffs.q_range;
     const buffedDuration = (skill.duration / 1000) * skillBuffs.q_duration;
+    const damage = calculateSkillDamage(skill, player);
     
     skillZones.push({
         type: 'thunder_shock',
         x: player.x,
         y: player.y,
         radius: buffedRange,
-        damage: skill.damage, // 每秒伤害
+        damage: damage, // 每秒伤害
         duration: buffedDuration, // 秒
         life: buffedDuration,
         color: skill.color,
@@ -1665,10 +1682,11 @@ function useThunderbolt(skill, player) {
     playSound('skill_w', player);
     
     // 全屏 AOE
+    const damage = calculateSkillDamage(skill, player);
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
-        enemy.hp -= skill.damage;
-        addDamageNumber(enemy.x, enemy.y, skill.damage.toString(), skill.color);
+        enemy.hp -= damage;
+        addDamageNumber(enemy.x, enemy.y, damage.toString(), skill.color);
         
         if (enemy.hp <= 0) {
             gameState.score += enemy.score;
@@ -1711,6 +1729,7 @@ function useIronTail(skill, player) {
     playSound('skill_r', player);
     
     // 360 度近战
+    const damage = calculateSkillDamage(skill, player);
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
         const dx = enemy.x - player.x;
@@ -1718,8 +1737,8 @@ function useIronTail(skill, player) {
         const dist = Math.sqrt(dx * dx + dy * dy);
         
         if (dist < skill.range) {
-            enemy.hp -= skill.damage;
-            addDamageNumber(enemy.x, enemy.y, skill.damage.toString(), skill.color);
+            enemy.hp -= damage;
+            addDamageNumber(enemy.x, enemy.y, damage.toString(), skill.color);
             playSound('hit');
             
             if (skill.knockback) {
@@ -1754,13 +1773,14 @@ function useEmber(skill, player) {
     // 创建持续伤害区域（火焰环绕）
     const buffedRange = skill.range * skillBuffs.q_range;
     const buffedDuration = (skill.duration / 1000) * skillBuffs.q_duration;
+    const damage = calculateSkillDamage(skill, player);
     
     skillZones.push({
         type: 'ember',
         x: player.x,
         y: player.y,
         radius: buffedRange,
-        damage: skill.damage,
+        damage: damage,
         duration: buffedDuration,
         life: buffedDuration,
         color: skill.color,
@@ -1801,6 +1821,7 @@ function useFlamethrower(skill, player) {
     // 前方扇形火焰喷射
     const angle = player.direction.y >= 0 ? 0 : Math.PI; // 面向方向
     const range = skill.range;
+    const damage = calculateSkillDamage(skill, player);
     
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
@@ -1814,8 +1835,8 @@ function useFlamethrower(skill, player) {
             const angleDiff = Math.abs(enemyAngle - angle);
             
             if (angleDiff < skill.angle / 2 || angleDiff > Math.PI * 2 - skill.angle / 2) {
-                enemy.hp -= skill.damage;
-                addDamageNumber(enemy.x, enemy.y, skill.damage.toString(), skill.color);
+                enemy.hp -= damage;
+                addDamageNumber(enemy.x, enemy.y, damage.toString(), skill.color);
                 playSound('hit');
                 
                 // 灼烧效果
@@ -1873,6 +1894,7 @@ function useDragonClaw(skill, player) {
     player.invincible = skill.invincible;
     
     // 对周围敌人造成伤害
+    const damage = calculateSkillDamage(skill, player);
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
         const edx = enemy.x - player.x;
@@ -1880,8 +1902,8 @@ function useDragonClaw(skill, player) {
         const dist = Math.sqrt(edx * edx + edy * edy);
         
         if (dist < skill.range) {
-            enemy.hp -= skill.damage;
-            addDamageNumber(enemy.x, enemy.y, skill.damage.toString(), skill.color);
+            enemy.hp -= damage;
+            addDamageNumber(enemy.x, enemy.y, damage.toString(), skill.color);
             playSound('hit');
             
             if (enemy.hp <= 0) {
@@ -1943,13 +1965,14 @@ function useFireSpin(skill, player) {
     // 创建火焰旋涡区域
     const buffedRange = skill.range * skillBuffs.q_range;
     const buffedDuration = (skill.duration / 1000) * skillBuffs.q_duration;
+    const damage = calculateSkillDamage(skill, player);
     
     skillZones.push({
         type: 'fire_spin',
         x: player.x,
         y: player.y,
         radius: buffedRange,
-        damage: skill.damage,
+        damage: damage,
         duration: buffedDuration,
         life: buffedDuration,
         color: skill.color,
